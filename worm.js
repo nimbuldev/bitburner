@@ -4,7 +4,7 @@ export async function main(ns) {
 
 	await ns.sleep(delay);
 	while (true) {
-		if (ns.getServerSecurityLevel(target) > ns.getServerMinSecurityLevel(target) + 10) {
+		if (ns.getServerSecurityLevel(target) > ns.getServerMinSecurityLevel(target) + 3) {
 			await ns.weaken(target);
 		}
 		if (ns.getServerMoneyAvailable(target) < ns.getServerMaxMoney(target) * 0.75) {

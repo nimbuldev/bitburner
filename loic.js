@@ -39,11 +39,6 @@ export async function main(ns) {
 	}
 
 	function attemptNuke(server) {
-		if (ns.getServerRequiredHackingLevel(server) > ns.getHackingLevel()) {
-			ns.print("Not enough hacking level to nuke " + server);
-			return false;
-		}
-
 		const numTools = countTools();
 		if (numTools < ns.getServerNumPortsRequired(server)) {
 			ns.print("Not enough tools to nuke " + server);
@@ -89,9 +84,14 @@ export async function main(ns) {
 			}
 			if (ns.hasRootAccess(server)) {
 				if (ns.getServerMaxRam(server) > 0) {
+					let numThreads = ns.getServerMaxRam(server) / ns.getScriptRam("worm.js");
+					if (server === "home") {
+						numThreads = (ns.getServerMaxRam(server) - ns.getScriptRam("loic.js")) / ns.getScriptRam("worm.js");
+					}
+
 					await ns.scp("worm.js", server);
-					const numThreads = ns.getServerMaxRam(server) / ns.getScriptRam("worm.js");
-					ns.exec("worm.js", server, numThreads, target, 7500 * count);
+					// Adding delay is a shit way to do this.
+					ns.exec("worm.js", server, numThreads, target, 30000 * count);
 					count++;
 				}
 			}
