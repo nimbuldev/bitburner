@@ -104,9 +104,8 @@ export async function main(ns) {
 	const maxGrowThreads = Math.floor(ramPerTarget / growRam);
 	const maxHackThreads = Math.floor(ramPerTarget / hackRam);
 
-	sortByOptimalServerToHack(servers);
-
 	while (true) {
+		sortByOptimalServerToHack(servers);
 		for (let i = 0; i < servers.length; i++) {
 			const server = servers[i];
 			if (!ns.hasRootAccess(server)) {
