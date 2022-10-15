@@ -127,16 +127,16 @@ export async function main(ns) {
 				const growTime = ns.getGrowTime(server);
 
 				if (securityLevel > minSecurityLevel + 5) {
-					ns.kill("hack.js", "home");
-					ns.kill("weaken.js", "home");
+					ns.kill("hack.js", "home", server);
+					ns.kill("weaken.js", "home", server);
 					ns.exec("weaken.js", "home", maxWeakenThreads, server);
 				} else if (money < maxMoney * 0.75) {
-					ns.kill("weaken.js", "home");
-					ns.kill("hack.js", "home");
+					ns.kill("weaken.js", "home", server);
+					ns.kill("hack.js", "home", server);
 					ns.exec("grow.js", "home", maxGrowThreads, server);
 				} else {
-					ns.kill("grow.js", "home");
-					ns.kill("weaken.js", "home");
+					ns.kill("grow.js", "home", server);
+					ns.kill("weaken.js", "home", server);
 					ns.exec("hack.js", "home", maxHackThreads, server);
 				}
 			}
