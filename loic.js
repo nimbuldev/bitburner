@@ -81,6 +81,10 @@ export async function main(ns) {
 				return 1;
 			}
 
+			if (aHackLevel > ns.getHackingLevel()) {
+				return 1;
+			}
+
 			return Math.abs(aHackLevel - optimalTargetHackLevel) - Math.abs(bHackLevel - optimalTargetHackLevel);
 		});
 	}
@@ -114,15 +118,11 @@ export async function main(ns) {
 			const server = servers[i];
 			if (ns.hasRootAccess(server)) {
 				// TODO: Implement a weaken->grow->weaken->hack loop with calculated timings to hack while growing and weakening. (Divide the allocated ram up)
-
+				const ramPart = Math.floor(ramPerTarget / 4);
 				const securityLevel = ns.getServerSecurityLevel(server);
 				const minSecurityLevel = ns.getServerMinSecurityLevel(server);
 				const money = ns.getServerMoneyAvailable(server);
 				const maxMoney = ns.getServerMaxMoney(server);
-
-				const hackTime = ns.getHackTime(server);
-				const weakenTime = ns.getWeakenTime(server);
-				const growTime = ns.getGrowTime(server);
 
 				if (securityLevel > minSecurityLevel * 1.1) {
 					if (!ns.isRunning("weaken.js", "home", server)) {
