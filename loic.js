@@ -74,9 +74,10 @@ export async function main(ns) {
 
 	const target = ns.args[0];
 
-	servers.reverse();
+	// Todo: Allow multiple targets and dynamically allocate RAM for each target.
+	// Run weaken, grow, and hack simultaneously within the allocated RAM.
+
 	while (true) {
-		let count = 0;
 		for (let i = 0; i < servers.length; i++) {
 			const server = servers[i];
 			if (!ns.hasRootAccess(server)) {
@@ -90,9 +91,7 @@ export async function main(ns) {
 					}
 
 					await ns.scp("worm.js", server);
-					// Adding delay is a shit way to do this.
-					ns.exec("worm.js", server, numThreads, target, 30000 * count);
-					count++;
+					ns.exec("worm.js", server, numThreads, target);
 				}
 			}
 		}
