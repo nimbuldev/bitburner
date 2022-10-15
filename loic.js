@@ -3,18 +3,22 @@ export function autocomplete(data, args) {
 }
 
 export async function main(ns) {
-	function getAllServers(serverList, server) {
-		if (server === undefined) {
+	function getAllServers(server, servers) {
+		if (!servers) {
+			servers = [];
+		}
+		if (!server) {
 			server = "home";
 		}
-		if (serverList.includes(server)) {
+		if (servers.includes(server)) {
 			return;
 		}
-		serverList.push(server);
+		servers.push(server);
 		const connected = ns.scan(server);
 		for (const connectedServer of connected) {
-			getAllServers(serverList, connectedServer);
+			getAllServers(connectedServer, servers);
 		}
+		return servers;
 	}
 
 	function countTools() {
@@ -69,13 +73,17 @@ export async function main(ns) {
 		}
 	}
 
-	let servers = [];
-	getAllServers(servers);
+	let servers = getAllServers();
 
-	const target = ns.args[0];
+	const numTargets = ns.args[0];
+	if (isNaN(numTargets)) {
+		ns.tprint("Invalid number of targets");
+		return;
+	}
 
 	// Todo: Allow multiple targets and dynamically allocate RAM for each target.
 	// Run weaken, grow, and hack simultaneously within the allocated RAM.
+	const ramPerTarget = ns.getServerMaxRam("home") / numTargets;
 
 	while (true) {
 		for (let i = 0; i < servers.length; i++) {
