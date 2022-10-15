@@ -4,11 +4,11 @@ export function autocomplete(data, args) {
 
 export async function main(ns) {
 	function getAllServers(server, servers) {
-		if (!servers) {
-			servers = [];
-		}
 		if (!server) {
 			server = "home";
+		}
+		if (!servers) {
+			servers = [];
 		}
 		if (servers.includes(server)) {
 			return;
@@ -73,6 +73,20 @@ export async function main(ns) {
 		}
 	}
 
+	function sortByOptimalServerToHack(servers) {
+		const optimalTargetHackLevel = Math.floor(ns.getHackingLevel() / 3);
+		servers.sort((a, b) => {
+			const aHackLevel = ns.getServerRequiredHackingLevel(a);
+			const bHackLevel = ns.getServerRequiredHackingLevel(b);
+
+			if (ns.getServerMaxMoney(a) === 0) {
+				return 1;
+			}
+
+			return Math.abs(aHackLevel - optimalTargetHackLevel) - Math.abs(bHackLevel - optimalTargetHackLevel);
+		});
+	}
+
 	let servers = getAllServers();
 
 	const numTargets = ns.args[0];
@@ -81,9 +95,16 @@ export async function main(ns) {
 		return;
 	}
 
-	// Todo: Allow multiple targets and dynamically allocate RAM for each target.
-	// Run weaken, grow, and hack simultaneously within the allocated RAM.
-	const ramPerTarget = ns.getServerMaxRam("home") / numTargets;
+	const maxRam = ns.getServerMaxRam("home") - ns.getScriptRam("loic.js");
+	const ramPerTarget = Math.floor(maxRam / numTargets);
+	const weakenRam = ns.getScriptRam("weaken.js");
+	const growRam = ns.getScriptRam("grow.js");
+	const hackRam = ns.getScriptRam("hack.js");
+	const maxWeakenThreads = Math.floor(ramPerTarget / weakenRam);
+	const maxGrowThreads = Math.floor(ramPerTarget / growRam);
+	const maxHackThreads = Math.floor(ramPerTarget / hackRam);
+
+	sortByOptimalServerToHack(servers);
 
 	while (true) {
 		for (let i = 0; i < servers.length; i++) {
@@ -91,18 +112,36 @@ export async function main(ns) {
 			if (!ns.hasRootAccess(server)) {
 				attemptNuke(server);
 			}
+		}
+		for (let i = 0; i < numTargets; i++) {
+			const server = servers[i];
 			if (ns.hasRootAccess(server)) {
-				if (ns.getServerMaxRam(server) > 0) {
-					let numThreads = ns.getServerMaxRam(server) / ns.getScriptRam("worm.js");
-					if (server === "home") {
-						numThreads = (ns.getServerMaxRam(server) - ns.getScriptRam("loic.js")) / ns.getScriptRam("worm.js");
-					}
+				// TODO: Time these better, you can hack while growing and weakening.
 
-					await ns.scp("worm.js", server);
-					ns.exec("worm.js", server, numThreads, target);
+				const securityLevel = ns.getServerSecurityLevel(server);
+				const minSecurityLevel = ns.getServerMinSecurityLevel(server);
+				const money = ns.getServerMoneyAvailable(server);
+				const maxMoney = ns.getServerMaxMoney(server);
+
+				const hackTime = ns.getHackTime(server);
+				const weakenTime = ns.getWeakenTime(server);
+				const growTime = ns.getGrowTime(server);
+
+				if (securityLevel > minSecurityLevel + 5) {
+					ns.kill("hack.js", "home");
+					ns.kill("weaken.js", "home");
+					ns.exec("weaken.js", "home", maxWeakenThreads, server);
+				} else if (money < maxMoney * 0.75) {
+					ns.kill("weaken.js", "home");
+					ns.kill("hack.js", "home");
+					ns.exec("grow.js", "home", maxGrowThreads, server);
+				} else {
+					ns.kill("grow.js", "home");
+					ns.kill("weaken.js", "home");
+					ns.exec("hack.js", "home", maxHackThreads, server);
 				}
 			}
 		}
-		await ns.sleep(60 * 5000);
+		await ns.sleep(5000);
 	}
 }
