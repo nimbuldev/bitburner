@@ -1,7 +1,3 @@
-export function autocomplete(data, args) {
-	return [...data.servers]; // This script autocompletes the list of servers.
-}
-
 export async function main(ns) {
 	function getAllServers(server, servers) {
 		if (!server) {
@@ -74,7 +70,7 @@ export async function main(ns) {
 	}
 
 	function sortByOptimalServerToHack(servers) {
-		// Todo: Add weight to servers based on max money.
+		// Todo: Add weight to servers based on max money, add weight based on time to hack, grow, and weaken
 
 		const optimalTargetHackLevel = Math.floor(ns.getHackingLevel() / 2);
 		servers.sort((a, b) => {
@@ -117,7 +113,7 @@ export async function main(ns) {
 		for (let i = 0; i < numTargets; i++) {
 			const server = servers[i];
 			if (ns.hasRootAccess(server)) {
-				// TODO: Time these better, you can hack while growing and weakening.
+				// TODO: Implement a weaken->grow->weaken->hack loop with calculated timings to hack while growing and weakening. (Divide the allocated ram up)
 
 				const securityLevel = ns.getServerSecurityLevel(server);
 				const minSecurityLevel = ns.getServerMinSecurityLevel(server);
@@ -128,7 +124,7 @@ export async function main(ns) {
 				const weakenTime = ns.getWeakenTime(server);
 				const growTime = ns.getGrowTime(server);
 
-				if (securityLevel > minSecurityLevel + 5) {
+				if (securityLevel > minSecurityLevel * 1.1) {
 					if (!ns.isRunning("weaken.js", "home", server)) {
 						ns.kill("hack.js", "home", server);
 						ns.kill("grow.js", "home", server);
