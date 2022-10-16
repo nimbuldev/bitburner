@@ -1,6 +1,7 @@
 export async function main(ns) {
 	let target = ns.args[0];
-	while (true) {
-		await ns.hack(target);
-	}
+	let delay = ns.args[1];
+
+	await ns.sleep(delay);
+	await ns.hack(target);
 }

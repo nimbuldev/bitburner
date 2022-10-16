@@ -89,6 +89,62 @@ export async function main(ns) {
 		});
 	}
 
+	function weaken(server, formulasServer, player, maxRam, delay) {
+		const maxWeakenThreads = Math.floor(maxRam / weakenRam);
+		const securityLevel = ns.getServerSecurityLevel(server);
+		const minSecurityLevel = ns.getServerMinSecurityLevel(server);
+		ns.exec("weaken.js", "home", maxWeakenThreads, server, delay);
+		let weakenTime = Math.ceil(ns.formulas.hacking.weakenTime(formulasServer, player));
+		let growTime = Math.ceil(ns.formulas.hacking.growTime(formulasServer, player));
+
+		if (securityLevel - maxWeakenThreads * 0.05 < minSecurityLevel * 1.1) {
+			let growDelay = 0;
+			if (weakenTime + delay > growTime) {
+				growDelay = weakenTime - growTime + delay;
+			}
+
+			grow(server, formulasServer, player, growDelay, growTime, weakenTime, maxRam, maxWeakenThreads);
+		}
+	}
+
+	function grow(server, formulasServer, player, delay, growTime, weakenTime, maxRam, maxWeakenThreads) {
+		let maxGrowThreads = Math.floor(maxRam / growRam);
+		let growPercent = ns.formulas.hacking.growPercent(formulasServer, maxGrowThreads, player, formulasServer.cpuCores);
+		let hackTime = ns.formulas.hacking.hackTime(formulasServer, player);
+
+		const money = ns.getServerMoneyAvailable(server);
+		const maxMoney = ns.getServerMaxMoney(server);
+
+		ns.exec("grow.js", "home", maxGrowThreads, server, delay);
+		let weakenDelay = delay + growTime;
+		ns.exec("weaken.js", "home", maxWeakenThreads, server, weakenDelay);
+
+		if (money * growPercent > maxMoney * 0.85) {
+			let larger = Math.max(growTime + delay, weakenTime + weakenDelay);
+
+			let hackDelay = 0;
+			if (hackTime < larger) {
+				hackDelay = larger - hackTime;
+			}
+
+			hack(server, formulasServer, player, hackDelay, hackTime, maxRam);
+		}
+	}
+	function hack(server, formulasServer, player, delay, hackTime, maxRam) {
+		let threadsRequiredToHackHalfCash = Math.floor(0.5 / ns.formulas.hacking.hackPercent(formulasServer, player));
+
+		if (threadsRequiredToHackHalfCash < maxHackThreads) {
+			ns.exec("hack.js", "home", threadsRequiredToHackHalfCash, server, delay);
+		} else {
+			ns.exec("hack.js", "home", maxHackThreads, server, delay);
+		}
+		let weakenDelay = 0;
+		if (weakenTime < hackTime + delay) {
+			weakenDelay = hackTime - weakenTime + delay;
+		}
+		weaken(server, formulasServer, player, maxRam, weakenDelay);
+	}
+
 	let servers = getAllServers();
 
 	const numTargets = ns.args[0];
@@ -97,51 +153,43 @@ export async function main(ns) {
 		return;
 	}
 
-	const maxRam = ns.getServerMaxRam("home") - ns.getScriptRam("loic.js");
-	const ramPerTarget = Math.floor(maxRam / numTargets);
 	const weakenRam = ns.getScriptRam("weaken.js");
 	const growRam = ns.getScriptRam("grow.js");
 	const hackRam = ns.getScriptRam("hack.js");
-	const maxWeakenThreads = Math.floor(ramPerTarget / weakenRam);
-	const maxGrowThreads = Math.floor(ramPerTarget / growRam);
-	const maxHackThreads = Math.floor(ramPerTarget / hackRam);
+
+	const killList = ["weaken.js", "grow.js", "hack.js"];
 
 	while (true) {
-		sortByOptimalServerToHack(servers);
+		const maxRam = ns.getServerMaxRam("home") - ns.getScriptRam("loic.js");
+		const ramPerTarget = Math.floor(maxRam / numTargets);
 		for (let i = 0; i < servers.length; i++) {
 			const server = servers[i];
 			if (!ns.hasRootAccess(server)) {
 				attemptNuke(server);
 			}
 		}
-		for (let i = 0; i < numTargets; i++) {
+		sortByOptimalServerToHack(servers);
+		const targets = servers.slice(0, numTargets);
+		const ps = ns.ps();
+		for (let i = 0; i < ps.length; i++) {
+			const process = ps[i];
+			if (!targets.includes(process.args[0]) && killList.includes(process.filename)) {
+				ns.kill(process.pid);
+			}
+		}
+
+		for (let i = 0; i < targets.length; i++) {
 			const server = servers[i];
 			if (ns.hasRootAccess(server)) {
-				// TODO: Implement a weaken->grow->weaken->hack loop with calculated timings to hack while growing and weakening. (Divide the allocated ram up)
 				const ramPart = Math.floor(ramPerTarget / 4);
 				const securityLevel = ns.getServerSecurityLevel(server);
 				const minSecurityLevel = ns.getServerMinSecurityLevel(server);
-				const money = ns.getServerMoneyAvailable(server);
-				const maxMoney = ns.getServerMaxMoney(server);
+
+				let formulasServer = ns.getServer(server);
+				let player = ns.getPlayer();
 
 				if (securityLevel > minSecurityLevel * 1.1) {
-					if (!ns.isRunning("weaken.js", "home", server)) {
-						ns.kill("hack.js", "home", server);
-						ns.kill("grow.js", "home", server);
-						ns.exec("weaken.js", "home", maxWeakenThreads, server);
-					}
-				} else if (money < maxMoney * 0.85) {
-					if (!ns.isRunning("grow.js", "home", server)) {
-						ns.kill("weaken.js", "home", server);
-						ns.kill("hack.js", "home", server);
-						ns.exec("grow.js", "home", maxGrowThreads, server);
-					}
-				} else {
-					if (!ns.isRunning("hack.js", "home", server)) {
-						ns.kill("grow.js", "home", server);
-						ns.kill("weaken.js", "home", server);
-						ns.exec("hack.js", "home", maxHackThreads, server);
-					}
+					weaken(server, formulasServer, player, ramPart, 0);
 				}
 			}
 		}
