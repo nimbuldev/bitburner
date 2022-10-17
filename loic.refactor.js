@@ -191,6 +191,7 @@ export async function main(ns) {
 						hackDelay = Math.ceil(takesLonger - hackTime + 400);
 					}
 
+					// Fuckin shit only works every other batch
 					let hackThreads = 0;
 					if (money > maxMoney * 0.95) {
 						hackThreads = Math.min(Math.ceil(ns.hackAnalyzeThreads(server, hackMoneyAmount)), maxHackThreads);
