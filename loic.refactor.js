@@ -137,7 +137,7 @@ export async function main(ns) {
 				let batchNo = 0;
 
 				if (ns.hasRootAccess(server)) {
-					const maxWeakenThreads = Math.floor((ramPerTarget * 0.95) / weakenRam);
+					let maxWeakenThreads = Math.floor((ramPerTarget * 0.95) / weakenRam);
 
 					let ramRemaining = ramPerTarget;
 
@@ -175,6 +175,9 @@ export async function main(ns) {
 					}
 					ns.tprint(growthThreads);
 					ns.exec("grow.js", "home", growthThreads, server, growDelay, batchNo);
+
+					maxWeakenThreads = ramRemaining / weakenRam;
+					weakenThreads = Math.min((growthThreads * 0.004) / 0.05, maxWeakenThreads);
 
 					let weakenDelay = 400;
 					if (growTime + growDelay > weakenTime) {
