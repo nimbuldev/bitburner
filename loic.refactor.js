@@ -121,12 +121,8 @@ export async function main(ns) {
 	}
 
 	async function batcher(targets) {
-		// The batcher should calculate the RAM usage instead of the hack methods so ramPart is not identical between all methods.
-
 		const maxRam = ns.getServerMaxRam("home") - ns.getScriptRam("loic.js");
-		const ramNeededForBatch = 0;
 		const ramPerTarget = Math.floor(maxRam / numTargets);
-		const ramPart = Math.floor(ramPerTarget / 4);
 
 		for (let i = 0; i < targets.length; i++) {
 			const server = targets[i];
@@ -136,110 +132,67 @@ export async function main(ns) {
 				continue;
 			}
 
-			ns.tprint("Starting batch for " + server);
+			for (let i = 0; i < targets.length; i++) {
+				const server = targets[i];
+				let batchNo = 0;
 
-			if (ns.hasRootAccess(server)) {
-				const securityLevel = ns.getServerSecurityLevel(server);
-				const minSecurityLevel = ns.getServerMinSecurityLevel(server);
-				const money = ns.getServerMoneyAvailable(server);
-				const maxMoney = ns.getServerMaxMoney(server);
+				if (ns.hasRootAccess(server)) {
+					const maxWeakenThreads = Math.floor((ramPerTarget * 0.95) / weakenRam);
 
-				let formulasServer = ns.getServer(server);
-				let player = ns.getPlayer();
+					let ramRemaining = ramPerTarget;
 
-				if (securityLevel > minSecurityLevel * 1.1) {
-					weaken(server, formulasServer, player, ramPerTarget, 0);
-				} else if (money < maxMoney * 0.95) {
-					grow(server, formulasServer, player, ramPerTarget, 0);
-				} else {
-					hack(server, formulasServer, player, ramPerTarget, 0);
+					const securityLevel = ns.getServerSecurityLevel(server);
+					const minSecurityLevel = ns.getServerMinSecurityLevel(server);
+					const money = ns.getServerMoneyAvailable(server);
+					const maxMoney = ns.getServerMaxMoney(server);
+					const neededGrowthMultiplier = maxMoney / money;
+
+					const hackMoneyAmount = maxMoney / 2;
+					let weakenThreads = Math.min(Math.ceil((securityLevel - minSecurityLevel) / 0.05), maxWeakenThreads);
+					ramRemaining -= weakenThreads * weakenRam;
+					const maxGrowThreads = Math.min(Math.floor((ramRemaining * 0.95) / growRam));
+
+					let growthThreads = Math.min(Math.ceil(ns.growthAnalyze(server, neededGrowthMultiplier)), maxGrowThreads);
+
+					if (growthThreads == 0) {
+						growthThreads = 1;
+					}
+
+					ramRemaining -= growthThreads * growRam;
+					const maxHackThreads = Math.floor((ramRemaining * 0.95) / hackRam);
+					const hackThreads = Math.min(Math.ceil(ns.hackAnalyzeThreads(server, hackMoneyAmount)), maxHackThreads);
+					ramRemaining -= hackThreads * hackRam;
+					const weakenTime = ns.getWeakenTime(server);
+					const hackTime = ns.getHackTime(server);
+					const growTime = ns.getGrowTime(server);
+					const batchRamUsage = weakenRam * weakenThreads + growRam * growthThreads + hackRam * hackThreads;
+					const batchRamUsage2 = ramPerTarget - ramRemaining;
+
+					ns.tprint("These should be the same: " + batchRamUsage + " " + batchRamUsage2);
+
+					ns.exec("weaken.js", "home", weakenThreads, server, 0, 0, batchNo);
+					let growDelay = 400;
+					if (weakenTime > growTime) {
+						growDelay = weakenTime - growTime;
+					}
+					ns.tprint(growthThreads);
+					ns.exec("grow.js", "home", growthThreads, server, growDelay, batchNo);
+
+					let weakenDelay = 400;
+					if (growTime + growDelay > weakenTime) {
+						weakenDelay = growTime + growDelay - weakenTime + 400;
+					}
+					ns.exec("weaken.js", "home", weakenThreads, server, weakenDelay, 1, batchNo);
+
+					let takesLonger = Math.max(growTime + growDelay, weakenTime + weakenDelay);
+					let hackDelay = 400;
+					if (takesLonger > hackTime) {
+						hackDelay = takesLonger - hackTime + 400;
+					}
+					ns.exec("hack.js", "home", hackThreads, server, hackDelay, batchNo);
 				}
 			}
 		}
-	}
-
-	function weaken(server, formulasServer, player, maxRam, delay) {
-		const maxWeakenThreads = Math.floor(maxRam / weakenRam);
-		const securityLevel = ns.getServerSecurityLevel(server);
-		const minSecurityLevel = ns.getServerMinSecurityLevel(server);
-		const weakenThreads = Math.min((securityLevel - minSecurityLevel) / 0.05, maxWeakenThreads);
-
-		let weakenTime = Math.ceil(ns.formulas.hacking.weakenTime(formulasServer, player));
-		let growTime = Math.ceil(ns.formulas.hacking.growTime(formulasServer, player));
-
-		ns.exec("weaken.js", "home", weakenThreads, server, 0, 0);
-		maxRam -= weakenThreads * weakenRam;
-
-		if (securityLevel - weakenThreads * 0.05 < minSecurityLevel * 1.1) {
-			let growDelay = 500;
-			if (weakenTime + delay > growTime) {
-				growDelay = weakenTime - growTime + 500;
-			}
-			grow(server, formulasServer, player, maxRam, growDelay);
-		}
-	}
-
-	function grow(server, formulasServer, player, maxRam, delay) {
-		// let maxGrowThreads = Math.floor((maxRam * 0.75) / growRam);
-		let maxGrowThreads = Math.floor(maxRam / growRam);
-
-		let maxGrowMult = ns.formulas.hacking.growPercent(formulasServer, maxGrowThreads, player, formulasServer.cpuCores);
-		let hackTime = ns.formulas.hacking.hackTime(formulasServer, player);
-		const money = ns.getServerMoneyAvailable(server);
-		const maxMoney = ns.getServerMaxMoney(server);
-
-		let neededMult = maxMoney / money;
-
-		let growThreads = approximateGrowThreads(formulasServer, player, neededMult);
-
-		growThreads = Math.min(growThreads, maxGrowThreads);
-		let growMult = ns.formulas.hacking.growPercent(formulasServer, growThreads, player, formulasServer.cpuCores);
-
-		const maxWeakenThreads = Math.floor(maxRam / weakenRam);
-		const growTime = Math.ceil(ns.formulas.hacking.growTime(formulasServer, player));
-		const weakenTime = Math.ceil(ns.formulas.hacking.weakenTime(formulasServer, player));
-
-		// security level will grow by threads * 0.004
-		let weakenThreads = Math.min((maxGrowThreads * 0.004) / 0.05, maxWeakenThreads);
-
-		ns.exec("grow.js", "home", growThreads, server, delay);
-
-		let weakenDelay = 500;
-		if (growTime + delay > weakenTime) {
-			weakenDelay = growTime + delay - weakenTime + 500;
-		}
-
-		maxRam -= growThreads * growRam;
-
-		ns.exec("weaken.js", "home", weakenThreads, server, weakenDelay, 1);
-
-		if (money * growMult > maxMoney * 0.95) {
-			let larger = Math.max(growTime + delay, weakenTime + weakenDelay);
-
-			let hackDelay = 500;
-			if (hackTime < larger) {
-				hackDelay = Math.ceil(larger - hackTime + 500);
-			}
-			hack(server, formulasServer, player, maxRam, hackDelay);
-		}
-	}
-
-	function hack(server, formulasServer, player, maxRam, delay) {
-		let threadsRequiredToHackHalfCash = Math.floor(0.5 / ns.formulas.hacking.hackPercent(formulasServer, player));
-		const maxHackThreads = Math.floor(maxRam / hackRam);
-		const hackTime = ns.formulas.hacking.hackTime(formulasServer, player);
-		const weakenTime = Math.ceil(ns.formulas.hacking.weakenTime(formulasServer, player));
-
-		let hackThreads = Math.min(threadsRequiredToHackHalfCash, maxHackThreads);
-
-		ns.exec("hack.js", "home", hackThreads, server, delay);
-
-		// let weakenDelay = 0;
-		// if (weakenTime < hackTime + delay) {
-		// 	weakenDelay = hackTime - weakenTime + delay;
-		// }
-
-		// weaken(server, formulasServer, player, maxRam, weakenDelay);
 	}
 
 	const servers = getAllServers();
