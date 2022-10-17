@@ -163,15 +163,10 @@ export async function main(ns) {
 
 					ramRemaining -= growthThreads * growRam;
 					const maxHackThreads = Math.floor((ramRemaining * 0.95) / hackRam);
-					const hackThreads = Math.min(Math.ceil(ns.hackAnalyzeThreads(server, hackMoneyAmount)), maxHackThreads);
-					ramRemaining -= hackThreads * hackRam;
+
 					const weakenTime = ns.getWeakenTime(server);
 					const hackTime = ns.getHackTime(server);
 					const growTime = ns.getGrowTime(server);
-					const batchRamUsage = weakenRam * weakenThreads + growRam * growthThreads + hackRam * hackThreads;
-					const batchRamUsage2 = ramPerTarget - ramRemaining;
-
-					ns.tprint("These should be the same: " + batchRamUsage + " " + batchRamUsage2);
 
 					ns.exec("weaken.js", "home", weakenThreads, server, 0, 0, batchNo);
 					let growDelay = 400;
@@ -192,7 +187,15 @@ export async function main(ns) {
 					if (takesLonger > hackTime) {
 						hackDelay = Math.ceil(takesLonger - hackTime + 400);
 					}
-					ns.exec("hack.js", "home", hackThreads, server, hackDelay, batchNo);
+
+					let hackThreads = 0;
+					if (money > maxMoney * 0.95) {
+						hackThreads = Math.min(Math.ceil(ns.hackAnalyzeThreads(server, hackMoneyAmount)), maxHackThreads);
+						ns.exec("hack.js", "home", hackThreads, server, hackDelay, batchNo);
+						ramRemaining -= hackThreads * hackRam;
+					}
+
+					const batchRamUsage = weakenRam * weakenThreads + growRam * growthThreads + hackRam * hackThreads;
 				}
 			}
 		}
