@@ -157,6 +157,9 @@ export async function main(ns) {
 					if (growthThreads == 0) {
 						growthThreads = 1;
 					}
+					if (weakenThreads == 0) {
+						weakenThreads = 1;
+					}
 
 					ramRemaining -= growthThreads * growRam;
 					const maxHackThreads = Math.floor((ramRemaining * 0.95) / hackRam);
