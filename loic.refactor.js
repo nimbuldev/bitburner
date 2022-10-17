@@ -176,21 +176,21 @@ export async function main(ns) {
 					ns.exec("weaken.js", "home", weakenThreads, server, 0, 0, batchNo);
 					let growDelay = 400;
 					if (weakenTime > growTime) {
-						growDelay = weakenTime - growTime;
+						growDelay = Math.ceil(weakenTime - growTime + 400);
 					}
 					ns.tprint(growthThreads);
 					ns.exec("grow.js", "home", growthThreads, server, growDelay, batchNo);
 
 					let weakenDelay = 400;
 					if (growTime + growDelay > weakenTime) {
-						weakenDelay = growTime + growDelay - weakenTime + 400;
+						weakenDelay = Math.ceil(growTime + growDelay - weakenTime + 400);
 					}
 					ns.exec("weaken.js", "home", weakenThreads, server, weakenDelay, 1, batchNo);
 
 					let takesLonger = Math.max(growTime + growDelay, weakenTime + weakenDelay);
 					let hackDelay = 400;
 					if (takesLonger > hackTime) {
-						hackDelay = takesLonger - hackTime + 400;
+						hackDelay = Math.ceil(takesLonger - hackTime + 400);
 					}
 					ns.exec("hack.js", "home", hackThreads, server, hackDelay, batchNo);
 				}
