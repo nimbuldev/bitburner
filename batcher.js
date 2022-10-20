@@ -123,7 +123,7 @@ export async function main(ns) {
 	}
 
 	function retarget(targets) {
-		targets = targets.slice(0 + offset, numTargets + offset);
+		targets = targets.slice(0, numTargets);
 		let ps = ns.ps();
 		for (let i = 0; i < ps.length; i++) {
 			const process = ps[i];
@@ -146,17 +146,17 @@ export async function main(ns) {
 	}
 
 	async function batcher(targets) {
-		const maxRam = ns.getServerMaxRam(runningServerName) - ns.getScriptRam("shit2.js") - ns.getScriptRam("batcher.js");
+		const maxRam = ns.args[3];
 		const ramPerTarget = Math.floor(maxRam / numTargets);
 
 		for (let i = 0; i < numTargets; i++) {
-			const server = targets[i + offset];
+			// const server = targets[i + offset];
+			const server = ns.args[4];
+
 			const ps = ns.ps();
-			if (ps.some(process => process.args[0] === server)) {
-				return;
+			if (ps.some(process => process.args[0] === server && hackList.includes(process.filename))) {
+				continue;
 			}
-			sortByOptimalServerToHack(servers);
-			retarget(targets);
 
 			for (let i = 0; i < numTargets; i++) {
 				let batchNo = 0;
@@ -218,28 +218,27 @@ export async function main(ns) {
 						const hackTime = ns.getHackTime(server);
 						const growTime = ns.getGrowTime(server);
 
-						ns.exec("weaken.js", runningServerName, weakenThreads, server, 0, 0, batchNo);
-
-						let growDelay = 400;
+						ns.exec("weaken.js", runningServerName, weakenThreads, server, 0, 0, batchNo, Math.random());
+						let growDelay = 300;
 						if (weakenTime > growTime) {
-							growDelay = Math.ceil(weakenTime - growTime + 400);
+							growDelay = Math.ceil(weakenTime - growTime + 300);
 						}
-						ns.exec("grow.js", runningServerName, growthThreads, server, growDelay, batchNo);
+						ns.exec("grow.js", runningServerName, growthThreads, server, growDelay, batchNo, Math.random());
 
 						maxWeakenThreads = ramRemaining / weakenRam;
 						weakenThreads = Math.ceil(Math.min((growthThreads * 0.004) / 0.05, maxWeakenThreads));
 
-						if (weakenThreads == 0) {
+						if (weakenThreads <= 0) {
 							weakenThreads = 1;
 							badFlag = true;
 						}
 
-						let weakenDelay = 400;
+						let weakenDelay = 300;
 						if (growTime + growDelay > weakenTime) {
-							weakenDelay = Math.ceil(growTime + growDelay - weakenTime + 400);
+							weakenDelay = Math.ceil(growTime + growDelay - weakenTime + 300);
 						}
 
-						ns.exec("weaken.js", runningServerName, weakenThreads, server, weakenDelay, 1, batchNo);
+						ns.exec("weaken.js", runningServerName, weakenThreads, server, weakenDelay, 1, batchNo, Math.random());
 
 						let takesLonger = Math.max(growTime + growDelay, weakenTime + weakenDelay);
 						let hackDelay = 300;
@@ -254,14 +253,14 @@ export async function main(ns) {
 						let takesLongest = Math.max(growTime + growDelay, weakenTime + weakenDelay, hackTime + hackDelay);
 						let takesShortest = Math.min(growTime + growDelay, weakenTime + weakenDelay, hackTime + hackDelay);
 
-						timeBetweenBatches = takesLongest - takesShortest + 300;
+						timeBetweenBatches = takesLongest - takesShortest + 600;
 
 						if (!flag) {
-							ns.exec("hack.js", runningServerName, hackThreads, server, hackDelay, batchNo);
+							ns.exec("hack.js", runningServerName, hackThreads, server, hackDelay, batchNo, Math.random());
 							ramRemaining -= hackThreads * hackRam;
 						}
 
-						ns.print("Ram remaining: " + ramRemaining);
+						ns.tprint("Ram remaining: " + ramRemaining);
 
 						const batchRamUsage = weakenRam * weakenThreads + growRam * growthThreads + hackRam * hackThreads;
 
@@ -294,7 +293,9 @@ export async function main(ns) {
 	}
 
 	while (true) {
-		nukeAllServers(servers);
+		// nukeAllServers(servers);
+		sortByOptimalServerToHack(servers);
+		// retarget(servers);
 		await batcher(servers);
 		await ns.sleep(5000);
 	}
