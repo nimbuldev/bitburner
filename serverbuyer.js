@@ -4,9 +4,11 @@ export async function main(ns) {
 	let money = ns.getServerMoneyAvailable("home");
 
 	let i = 1;
-	while (money > cost && i <= 25) {
+	while (money > cost && i <= 10) {
 		const name = "server" + i;
 		if (ns.serverExists(name)) {
+			ns.scp(["shit2.js", "weaken.js", "grow.js", "hack.js"], name);
+			ns.exec("shit2.js", name, 1, 1, 50, i);
 			i++;
 			continue;
 		}
@@ -17,7 +19,7 @@ export async function main(ns) {
 		}
 
 		ns.scp(["shit2.js", "weaken.js", "grow.js", "hack.js"], name);
-		ns.exec("shit2.js", 1, 50, i);
+		ns.exec("shit2.js", name, 1, 1, 50, i);
 		i++;
 	}
 }
