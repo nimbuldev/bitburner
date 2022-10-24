@@ -256,6 +256,11 @@ export async function main(ns) {
 
 						timeBetweenBatches = takesLongest - takesShortest + 300;
 
+						if (hackThreads == 0) {
+							hackThreads = 1;
+							badFlag = true;
+						}
+
 						if (!flag) {
 							ns.exec("hack.js", runningServerName, hackThreads, server, hackDelay, batchNo);
 							ramRemaining -= hackThreads * hackRam;

@@ -20,6 +20,8 @@ export async function main(ns) {
 		}
 		return servers;
 	}
+
+	// Returns an array that sequentially contains the path from home to the target server.
 	function traceToHome(server, servers, chain) {
 		if (!chain) {
 			chain = [];
@@ -30,26 +32,33 @@ export async function main(ns) {
 		}
 
 		if (!servers.includes(server)) {
-			ns.tprint("Server " + server + " is not connected to home.");
+			ns.tprint("Server " + server + " does not exist.");
 			return;
 		}
 		chain.push(server);
 		if (server === "home") {
-			let out = "";
-			chain.reverse();
-			for (const server of chain) {
-				out += server + " -> ";
-			}
-			ns.tprint(out.slice(0, -4));
-			return;
+			return chain.reverse();
 		}
 		const connected = ns.scan(server);
 		for (const connectedServer of connected) {
-			traceToHome(connectedServer, servers, chain);
+			let out = traceToHome(connectedServer, servers, chain);
+			if (out) {
+				return out;
+			}
 		}
+		return;
 	}
 
 	let target = ns.args[0];
 	let allServers = getAllServers();
-	traceToHome(target, allServers);
+	let chain = traceToHome(target, allServers);
+	if (!chain) {
+		return;
+	}
+
+	let print = "";
+	for (const server of chain) {
+		print += server + " -> ";
+	}
+	ns.tprint(print.slice(0, -4));
 }
